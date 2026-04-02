@@ -1,0 +1,835 @@
+---
+title: "DATA_MINING_TASK2"
+author: "Rocco D’Ancona, Emanuele Maddes, Mattia Laurenzi, Andrea Polidoro, Gianluca Paoloemilio"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+rm(list=ls())
+library(GGally)
+library(ggord)
+library(readxl)
+library(tidyverse)  
+library(cluster)    
+library(factoextra) 
+library(psych)
+library(car)
+library(gridExtra)
+library(ggplot2)
+library(MASS)
+dataset = read_excel("C:/Users/rocco/Desktop/TASK2_DATA_MINING/semi_dataset.xlsx")
+attach(dataset)
+
+#panoramica del dataset
+str(dataset)
+summary(dataset)
+
+```
+
+**ANALISI ESPLORATIVA DEL DATASET** Le variabili presenti nel dataset riguardano misurazioni delle proprietà geometriche di chicchi appartenenti a tre diverse varietà di grano
+
+```{r}
+#conto i valori mancanti per ogni colonna per vedere se sono significative
+numero_val_mancanti = colSums(is.na(dataset))
+
+#visualizzo quante ne sono
+numero_val_mancanti
+```
+
+il dataset non presenta dati mancanti, procediamo con lìanalisi delle varie variabili.
+
+Tutte *le variabili presenti nel dataset sono quantitative continue* ad eccezione di type_seed che è un variabile dummy.
+
+```{r}
+par(mfrow=c(1,3))
+nome = "Area"
+hist(
+      dataset[[nome]], 
+      main = paste("Istogramma di", nome), 
+      xlab = nome, 
+      col = "lightblue",
+      border = "black"
+      )
+
+boxplot(
+      dataset[[nome]], 
+      main = paste("Boxplot di", nome), 
+      xlab = nome, 
+      col = "green"
+      )
+
+
+qqnorm(
+      dataset[[nome]], 
+      main = paste("Qqplot di", nome), 
+      xlab = nome, 
+      col = "lightblue"
+      )
+qqline(
+  dataset[[nome]], 
+  col = "red"
+  
+)
+par(mfrow=c(1,1))
+```
+
+**AREA** --\> esprime l'area dei chicchi in analisi in mm\^2. Il valore medio si aggira intorno ai 15 mm\^2, anche se la maggior parte dei semi ha un'area compresa tra 12 e 13 mm\^2;
+
+```{r}
+par(mfrow=c(1,3))
+nome = "perimeter"
+hist(
+      dataset[[nome]], 
+      main = paste("Istogramma di", nome), 
+      xlab = nome, 
+      col = "lightblue",
+      border = "black"
+      )
+
+boxplot(
+      dataset[[nome]], 
+      main = paste("Boxplot di", nome), 
+      xlab = nome, 
+      col = "green"
+      )
+
+
+qqnorm(
+      dataset[[nome]], 
+      main = paste("Qqplot di", nome), 
+      xlab = nome, 
+      col = "lightblue"
+      )
+qqline(
+  dataset[[nome]], 
+  col = "red"
+  
+)
+par(mfrow=c(1,1))
+```
+
+**PERIMETER** --\> esprime il perimetro dei chicchi in mm, il perimetro medio si aggira intorno ai 14.5 mm con una frequenza più alta per semi di circa 13mm
+
+```{r}
+par(mfrow=c(1,3))
+nome = "compactness"
+hist(
+      dataset[[nome]], 
+      main = paste("Istogramma di", nome), 
+      xlab = nome, 
+      col = "lightblue",
+      border = "black"
+      )
+
+boxplot(
+      dataset[[nome]], 
+      main = paste("Boxplot di", nome), 
+      xlab = nome, 
+      col = "green"
+      )
+
+
+qqnorm(
+      dataset[[nome]], 
+      main = paste("Qqplot di", nome), 
+      xlab = nome, 
+      col = "lightblue"
+      )
+qqline(
+  dataset[[nome]], 
+  col = "red"
+  
+)
+par(mfrow=c(1,1))
+```
+
+***COMPACTNESS*** --\> la compattezza è una misura tipica dei semi che si calcola in questo modo $$\frac{4 \pi \cdot \text{area}}{\text{perimetro}^2}$$
+
+Questa var presenta qualche outliers nei valori più bass, il valore medio è di circa 0.87 ma si deve considerare che il range di variazione nel nostro dataset è tra 0.8 e 0.9
+
+```{r}
+par(mfrow=c(1,3))
+nome = "length_kernel"
+hist(
+      dataset[[nome]], 
+      main = paste("Istogramma di", nome), 
+      xlab = nome, 
+      col = "lightblue",
+      border = "black"
+      )
+
+boxplot(
+      dataset[[nome]], 
+      main = paste("Boxplot di", nome), 
+      xlab = nome, 
+      col = "green"
+      )
+
+
+qqnorm(
+      dataset[[nome]], 
+      main = paste("Qqplot di", nome), 
+      xlab = nome, 
+      col = "lightblue"
+      )
+qqline(
+  dataset[[nome]], 
+  col = "red"
+  
+)
+par(mfrow=c(1,1))
+```
+
+***LENGTH_KERNEL*** --\> la lunghezza dei chicchi si aggira mediamente intorno ai 5.5 mm
+
+```{r}
+par(mfrow=c(1,3))
+nome = "width_kernel"
+hist(
+      dataset[[nome]], 
+      main = paste("Istogramma di", nome), 
+      xlab = nome, 
+      col = "lightblue",
+      border = "black"
+      )
+
+boxplot(
+      dataset[[nome]], 
+      main = paste("Boxplot di", nome), 
+      xlab = nome, 
+      col = "green"
+      )
+
+
+qqnorm(
+      dataset[[nome]], 
+      main = paste("Qqplot di", nome), 
+      xlab = nome, 
+      col = "lightblue"
+      )
+qqline(
+  dataset[[nome]], 
+  col = "red"
+  
+)
+par(mfrow=c(1,1))
+```
+
+***WIDTH_KERNEL*** --\> la larghezza dei chicchi si aggira intorno a poco più di 3mm, si può notare che la frequenza è simile per quasi tutti i valori
+
+```{r}
+par(mfrow=c(1,3))
+nome = "asymmetry"
+hist(
+      dataset[[nome]], 
+      main = paste("Istogramma di", nome), 
+      xlab = nome, 
+      col = "lightblue",
+      border = "black"
+      )
+
+boxplot(
+      dataset[[nome]], 
+      main = paste("Boxplot di", nome), 
+      xlab = nome, 
+      col = "green"
+      )
+
+
+qqnorm(
+      dataset[[nome]], 
+      main = paste("Qqplot di", nome), 
+      xlab = nome, 
+      col = "lightblue"
+      )
+qqline(
+  dataset[[nome]], 
+  col = "red"
+  
+)
+par(mfrow=c(1,1))
+```
+
+***ASYMMETRY*** --\> il coefficiente di asimmetria è mediamente pari 3.7, la distribuzione presenta qualche outliers per i valori più elevati
+
+```{r}
+par(mfrow=c(1,3))
+nome = "length_kernel_groove"
+hist(
+      dataset[[nome]], 
+      main = paste("Istogramma di", nome), 
+      xlab = nome, 
+      col = "lightblue",
+      border = "black"
+      )
+
+boxplot(
+      dataset[[nome]], 
+      main = paste("Boxplot di", nome), 
+      xlab = nome, 
+      col = "green"
+      )
+
+
+qqnorm(
+      dataset[[nome]], 
+      main = paste("Qqplot di", nome), 
+      xlab = nome, 
+      col = "lightblue"
+      )
+qqline(
+  dataset[[nome]], 
+  col = "red"
+  
+)
+par(mfrow=c(1,1))
+```
+
+***LENGTH_KERNEL_GROOVE*** --\> la lunghezza del solco del chicco è mediamente pari a 5.2 e varia da 4.5 a 6.5
+
+```{r}
+nome = "type_seed"
+hist(
+      dataset[[nome]], 
+      main = paste("Istogramma di", nome), 
+      xlab = nome, 
+      col = "lightblue",
+      border = "black"
+      )
+
+```
+
+***TYPE_SEED*** --\> è una variabile dymmy che indica il tipo di seme, i semi possono essere di 3 tipi e possiamo vedere che ci sono 70 osservazioni per tipo per un tot di 210 osservazioni.
+
+**ANALISI DELLA CORRELAZIONE**
+
+```{r}
+#rimuovo dal dataset la variabile dummy (type_seed) per calcolare la correlazione 
+dataset_senza_dummy = subset(dataset, select = -c(type_seed))
+
+# Calcolo la coorelazione 
+corr = cor(dataset_senza_dummy)
+
+# Crea la matrice di scatterplot 
+pairs(
+  dataset_senza_dummy,
+  panel = panel.smooth, 
+  lwd = 3
+)
+
+# Crea il grafico della matrice di correlazione
+library(corrplot)
+corrplot.mixed(corr)
+
+```
+
+Come possiamo vedere dai grafici la correlazione tra le variabili è molto significativa e sempre positiva, questo vale per tutte le var tranne che per il coeff di asimmetria che è poco correlata con le altre var e presenta correlazione neg.
+
+*Questa situazione rende molto favorevole l'analisi in componenti principali*
+
+**STANDARDIZZO LE VARIABILI** poichè il dataset presenta variabili che hanno scale diverse e quindi potrebbe succedere di ottenere risultati alterat:
+
+-   **nella PCA** –\> le variabili che hanno più intensità spiegherebbero gran parte della variabilità anche se questo non rappresenta la realtà.
+
+-   **nel clustering** –\> la distanza tra punti (ad es quella euclidea) sarà dominata dalle var con scale più grandi.
+
+***ANALISI IN COMPONENTI PRINCIPALI (PCA)***
+
+```{r}
+#creo il dataset per eseguire la PCA
+dataset_PCA = scale(subset(
+  dataset, select = -c(type_seed)))
+
+#eseguo il comando prcomp sul dataset standardizzato e senza la var dummy
+PCA_output = prcomp(dataset_PCA)
+
+summary(PCA_output)
+
+```
+
+-   **Standard deviation** --\> rapprenta la radice dei lamda (autovalori)
+
+-   **Proportion of Variance** --\> varianza spiegata da ogni componente principale
+
+-   **Cumulative Proportion** --\> varianza cumulata spiegata dalle varie componenti (notare che se si usano tutte le comp non si perde informazione)
+
+```{r}
+#calcolo pve (varianza speigata da ogni pca)
+lamda_PCA = PCA_output$sdev^2
+pve = lamda_PCA / sum(lamda_PCA)
+par(mfrow=c(1,2))
+#grafico della varianza spiegata da ogni singola componente (+cumulata)
+plot(pve, xlab="COMPONENTI PRINCIPALI", ylab="VARIANZA SPIEGATA", ylim=c(0,1),type='b')
+plot(cumsum(pve), xlab="COMPONENTI PRINCIPALI", ylab="VARIANZA CUMULATA SPIEGATA", ylim=c(0,1),type='b')
+```
+
+Possiamo notare che prendendo solo 2 componenti principali riusciamo a **spiegare quasi il 90%** della variabilità totale, quindi rinunciando a circa il 10% della variabilità tot possiamo rappresentare i valori in R2.
+
+Se invece decidiamo di prendere 3 CP riusciamo a spiegare quasi il 100 della variabilità tot.
+
+Poichè le rotation sono in gran parte negative cambaimo il segno a tutte le rotation in modo da avere una interpretazione più agevole
+
+```{r}
+#inverto il segno autovettori
+PCA_output$rotation = - PCA_output$rotation
+
+par(mfrow=c(1,2))
+#biplot
+biplot(PCA_output, 
+       xlab = "GRANDEZZA DEL SEME (PC1)", 
+       ylab = "FORMA DEL SEME (PC2)")
+
+#grafico con solo etichette
+plot(PCA_output$rotation[,1],PCA_output$rotation[,2], 
+     xlab= "GRANDEZZA DEL SEME (PC1)", 
+     ylab = "FORMA DEL SEME (PC2)")
+text(PCA_output$rotation[,1],PCA_output$rotation[,2], 
+     labels = rownames(PCA_output$rotation))
+
+
+#metto in una variabile gli score delle prime due CP
+ris_PCA_1e2 = PCA_output$x[, 1:2]
+
+```
+
+Possiamo osservare che:
+
+-   **PC1** –\> esprime la **grandezza del seme**, ad alti valori di PC1 abbiamo un seme di perimetro, area, larghezza, lunghezza del solco e lunghezza maggiore e viceversa per bassi valori.\
+    Questo risultato potevamo già aspettarcelo dalla visualizzazione del grafico della correlazione in quanto la PC1 spiega tutte quelle var che tra loro sono fortemente correlate.
+
+-   **PC2** –\> esprime la **forma del seme**, ad alti valori di PC2 aabiamo un seme che risulta essere molto asimmetrico e poco compatto e viceversa per quanto riguarda i valori bassi
+
+    Questo si vede anche nel grafico della correlazione in quanto sono correlate negativamente.
+
+**PLOT DEI GRUPPI USANDO LE CP**
+
+```{r}
+# Convertiamo la matrice in un dataframe
+ris_PCA_1e2 = as.data.frame(ris_PCA_1e2)
+
+# Aggiungiamo le variabili type_seed al dataframe
+ris_PCA_1e2$type_seed = dataset$type_seed
+# Converto type_seed in un fattore 
+ris_PCA_1e2$type_seed = as.factor(ris_PCA_1e2$type_seed)
+
+#plot gruppi con CP
+ggplot(ris_PCA_1e2) +
+  geom_point(aes(PC1, PC2, col=type_seed, shape=type_seed), 
+             size=3, alpha=0.5) +
+  labs(x = "PC1-GRANDEZZA DEL SEME", y = "PC2-FORMA DEL SEME")
+
+
+table(osservati = dataset$type_seed )
+
+```
+
+**CLUSTERING**
+
+```{r}
+#creo i dataset che utilizzerò per eseguire il clustering
+
+#elimino la variabile dummy dal dataset in quanto il clustering è un analisi non supervisionata + standardizzo 
+dataset_clustering_senza_dummy = scale(subset(
+  dataset, select = -c(type_seed)))
+
+
+#impost il seed
+set.seed(1)
+
+#numero di centroidi
+k_full = 1:30  # per elbo, sil, e gap
+k_grafico = 2:7 # per vedere i graf delle kmedie
+
+#calcolo i kmedie fino a 30
+k_ris = lapply(k_full, function(k) {
+  kmeans(dataset_clustering_senza_dummy, centers = k, nstart = 50)
+})
+
+#creo i grafici per i primi 6 k (2-7 centri)
+cluster_plots = lapply(k_grafico, function(k) {
+  fviz_cluster(k_ris[[k]], geom = "point", data = dataset_clustering_senza_dummy) +
+    ggtitle(paste("k =", k))
+})
+
+#mostro i grafici
+grid.arrange(grobs = cluster_plots, nrow = 3)
+
+```
+
+Possiamo vedere come appare il clustering del k_medie con k da 2 a 7 (possiamo vedere che quando k=3 la divisione dei semi risulta esere quasi identica a quella che abbiamo con le CP)
+
+**QUANTI GRUPPI DOBBIAMO PRENDERE?**
+
+```{r}
+#elbow
+wss = sapply(k_ris, function(km) km$tot.withinss)
+plot(k_full, wss, type = "b", pch = 19,
+     xlab = "numero di cluster K",
+     ylab = "WSS -> Variabilità Intra-cluster",
+     main = "Elbow")
+```
+
+Il metodo del gomito ci suggerisce di prendere **3 gruppi**, in quanto la var with-in diminuisce in modo significativo fino a k=3.
+
+```{r}
+#calcolo gap statistic
+gap_stat = clusGap(dataset_clustering_senza_dummy, FUN = kmeans, nstart = 50, K.max = 20, B = 20)
+
+#grafico gap statistic
+fviz_gap_stat(gap_stat)
+```
+
+anche il metodo del gap_statistic suggerisce di prendere **3 gruppi** cosi come il metodo dell'elbow (valuta la qualità del cluster conforntandoli con altri cluster generati casualmente)
+
+**SILHOUETTE**
+
+```{r}
+#calcolo il silhouette
+silhouette_scores = sapply(k_ris[2:20], function(km) {
+  sil = silhouette(km$cluster, dist(dataset_clustering_senza_dummy))
+  mean(sil[, 3])  # ritorna il Silhouette Score medio
+})
+
+#grafico del sil
+plot(2:20, silhouette_scores, type = "b", pch = 19,
+     xlab = "Numero di Cluster K",
+     ylab = "Silhouette Score Medio",
+     main = "Silhouette Score")
+```
+
+suggerisce di prendere **2 gruppi** (il silhouette valuta la qualità dei cluster basandosi sulla vicinanza dei pt all'interno del cluster --\> cerca di minimizzare la varianza dentro il cluster e massimizzare quella tra cluster differenti
+
+```{r}
+set.seed(1)
+
+ris_PC1E2_senza_dummy = ris_PCA_1e2[, -3]  # Rimuove la terza colonna
+
+#nr di centroidi
+k = 2:3
+
+#eseguo k-means per ogni valore di k e salvo i ris in una lista
+k_ris_pca = lapply(k, function(k) {
+  kmeans(ris_PC1E2_senza_dummy, centers = k, nstart = 50)
+})
+
+#visualizzo i cluster per ogni k e salvo i grafici in una lista
+cluster_plots = lapply(seq_along(k_ris_pca), function(i) {
+  fviz_cluster(k_ris_pca[[i]], geom = "point", 
+    data = ris_PC1E2_senza_dummy) +
+    ggtitle(paste("k =", k[i]))
+})
+
+#mostra o grafici in due righe
+do.call(grid.arrange, c(cluster_plots, nrow = 2))
+
+```
+
+riproponiamo il clustering kmedie usando come dataset le prime 2 comp princ, così come potevamo aspettarci i risultati sono molto simili al cluster fatto con le CP sfruttando la conoscenza di type_seed, in quanto queste spiegano quasi il 90% della var tot e cmq anche senza usare l'ACP l'lgoritmo del kmedie per rappresentare + var sull'asse cartesiano cerca di ridurre la dimens al meglio di quello che riesce a fare (rappresenta 8 var su due assi --\> cmq non si tratta dell'acp in quanto il ris è differente ma è un altra tecnica per ridurre dimensionalità)
+
+### **Confronto tra cluster k_medie con Dataset e PC1_PC2**
+
+| Dataset | PC1-PC2 | Dataset originale |
+|------------------------|------------------------|------------------------|
+| **Totale varianza (`totss`)** | 1302 | 1463 |
+| **Varianza intra-cluster (`tot.withinss`)** | 269 | 429 |
+| **Varianza inter-cluster (`betweenss`)** | 1033 | 1034 |
+| **Dimensioni dei cluster (`size`)** | [71, **67**, **72**] | [67, **71**, 72] |
+
+Possiamo vedere che i due tipi di cluster per quanto riguarda il nr di semi in un gruppo sono simili, ma dobbiamo preferire quello genarato utilizzando le CP perchè ha una varianza withinss nettamente più bassa rispetto al cluster basato sul dataset originale (e sopratutto perchè solo con le prime 2 CP spieghiamo quasi il 90% della variabilità tot)
+
+**CLUSTERING GERARCHICO**
+
+```{r}
+#caloclo le distanze per i diversi tipi di linkage
+data.dist=dist(dataset_clustering_senza_dummy)
+singolo = hclust(data.dist, method = "single")
+completo = hclust(data.dist, method = "complete")
+medio = hclust(data.dist, method = "average")
+ward = hclust(data.dist, method = "ward.D2")
+
+```
+
+```{r}
+#plot dendrogramma a collegamento singolo
+plot(singolo, labels = singolo$comp_short, cex = .7,
+        main = "single linkage")
+```
+
+**lo scartiamo** (IL LINKAGE SINGOLO CREA LUNGHE CODE E RISULTA ESSERE MOLTO SUSCETTIBILE AL RUMORE)
+
+```{r}
+#plot dendrogramma a collegamento completo
+plot(completo, labels = completo$comp_short, cex = .7,
+        main = "complete linkage")
+
+```
+
+**lo accettiamo** (I GRUPPI SEMBRANO ESSERE BEN DISTINTI TRA DI LORO --\> 2-3-4 GRUPPI)
+
+```{r}
+#plot dendrogramma a collegamento medio 
+plot(medio, labels = medio$comp_short, cex = .7,
+        main = "average linkage")
+```
+
+**lo scartiamo** PERHCE' RISULTA MOLTO SIMILE AL COMPLETO MA PEGGIORE PER QUANTO RIGUARDA LA CHIAREZZA SU DOVE EFFETTUARE IL TAGLIO
+
+```{r}
+#plot dendrogramma ward
+plot(ward, labels = ward$comp_short, cex = .7,
+        main = "Ward")
+```
+
+**lo accettiamo** PERCHE I GRUPPI SEMBRANO ESSERE OMOGENEI E IL GRAFICO SUGGERISCE UNA DIVISIONE BEN PRECISA (3 GRUPPI)
+
+AVENDO PRESO ATTO DEL FATTO CHE IL COMPLETO E WORD SEMBRANO I MIGLIORI SULLA BASE DEL FATTO CHE LA DIVISIONE DEI GRUPPI E' PIU' OMOGENEA PROCEDIAMO A CALCOLARE IL NR DI GRUPPI IDEALE UTILIZZANDO UN APPROCCIO PIU' OGGETTIVO
+
+**TRA WARD E COMPLETO PREFERISCO WARD POICHE' I GRUPPI RISULTANO PIU' OMOGENI TRA LORO E VISIVAMENTE BEN DISTINTI**
+
+**ELBOW** (metodo gerarchico)
+
+```{r}
+#grafico elbow
+fviz_nbclust(dataset_clustering_senza_dummy, hcut, method = 'wss',nstart = 50, k.max = 10)
+```
+
+suggerisce 3 gruppi
+
+**GAP STATISTIC** (metodo gerarchico)
+
+```{r}
+fviz_nbclust(dataset_clustering_senza_dummy, hcut, method = 'gap_stat',nstart = 50, k.max = 10)
+
+```
+
+Anche il gap_statistic suggerisce 3 gruppi.
+
+**METODO SILHOUETTE SCORE**
+
+```{r}
+fviz_nbclust(dataset_clustering_senza_dummy, hcut, method = 'silhouette',nstart = 50, k.max = 10)
+```
+
+suggerisce 2 gruppi
+
+poichè sia il gap static, il metodo del gomito e il dendrogramma del linkage completo e ward suggeriscono 3 gruppi (l'unico che suggerisce 2 è il silhouette) --\> **decido di tagliare i dendrogrammi a 3**
+
+```{r}
+#taglio i dendrogrammi ward e completo a 3 
+ward_cut = cutree(ward, k = 3)
+table(ward_cut)
+
+completo_cut = cutree(completo, k=3)
+table(completo_cut)
+```
+
+```{r}
+#confronto
+table(completo = completo_cut, ward = ward_cut)
+```
+
+Riga 1 (Completo 1):
+
+47 osservazioni nel cluster 1 del metodo “Completo” appartengono anche al cluster 1 del metodo “Ward”.
+
+5 osservazioni del cluster 1 (Completo) appartengono al cluster 2 (Ward).
+
+Nessuna osservazione del cluster 1 (Completo) appartiene al cluster 3 (Ward).
+
+Riga 2 (Completo 2):
+
+3 osservazioni del cluster 2 (Completo) appartengono al cluster 1 (Ward).
+
+65 osservazioni del cluster 2 (Completo) appartengono al cluster 2 (Ward).
+
+Nessuna osservazione del cluster 2 (Completo) appartiene al cluster 3 (Ward).
+
+Riga 3 (Completo 3):
+
+23 osservazioni del cluster 3 (Completo) appartengono al cluster 1 (Ward).
+
+Nessuna osservazione del cluster 3 (Completo) appartiene al cluster 2 (Ward).
+
+67 osservazioni del cluster 3 (Completo) appartengono al cluster 3 (Ward).
+
+
+```{r}
+#rappresento il dendrogramma ward tagliato
+plot(ward, main="WARD_CUT")
+rect.hclust(ward, k = 3)
+```
+
+```{r}
+#rappresento il dendrogramma completo e taglio a 3
+plot(completo, main="COMPLETO CUT")
+rect.hclust(completo, k = 3)
+```
+
+**CALCOLO IL CLUSTERING GERARCHICO DI WARD SULLE COMPONENTI PRINCIPALI**
+
+```{r}
+#calcolo la matr delle distanze 
+pca_dist = dist(ris_PC1E2_senza_dummy)
+
+#calcolo i cluster
+ward_pca = hclust(pca_dist, method = "ward.D2")
+completo_pca = hclust(pca_dist, method = "complete")
+
+#taglio il dendrogramma a 3
+ward_pca_cut = cutree(ward_pca, k = 3)
+completo_pca_cut = cutree(completo_pca, k = 3)
+
+
+
+
+#plot dendrogramma di ward su pca
+plot(ward_pca, main = "WARD su PCA", sub = "", xlab = "")
+rect.hclust(ward_pca, k = 3, border = "red")  
+
+#plot dendrogramma completo su pca
+plot(completo_pca, main = "COMPLETO su PCA", sub = "", xlab = "")
+rect.hclust(completo_pca, k = 3, border = "blue")  
+
+```
+
+**CONFRONTO WARD E COMPLETO SU PCA CON PLOT GRUPPI OSSERVATI**
+
+```{r}
+#divido il grafico in 3 colonne 
+par(mfrow = c(1,2))
+
+
+#plotto ward con le prime due comp princ 
+plot(ris_PC1E2_senza_dummy[, 1], ris_PC1E2_senza_dummy[, 2], 
+     col = ward_pca_cut, pch = 16, 
+     xlab = "GRANDEZZA DEL SEME (PC1)", ylab = "FORMA (PC2)",  
+     main = "Cluster WARD su PCA")
+
+
+
+
+#plotto il completo con le prie due CP
+plot(ris_PC1E2_senza_dummy[, 1], ris_PC1E2_senza_dummy[, 2], 
+     col = completo_pca_cut, pch = 16, 
+     xlab = "GRANDEZZA DEL SEME (PC1)", ylab = "FORMA (PC2)", 
+     main = "Cluster COMPLETO su PCA")
+
+par(mfrow = c(1,1))
+
+table(ward_pca_cut)
+table(completo_pca_cut)
+
+
+#plot gruppi con CP
+ggplot(ris_PCA_1e2) +
+  geom_point(aes(PC1, PC2, col=type_seed, shape=type_seed), 
+             size=3, alpha=0.5) +
+  labs(x = "PC1-GRANDEZZA DEL SEME", y = "PC2-FORMA DEL SEME")
+
+
+
+```
+
+come ci aspettavamo possiamo notare che i due cluster sono molto simili ma quello che utilizza il linkage ward in questo caso è leggermente più efficace in quanto ha un varianza interna ridotta. Possiamo notarlo anche visivamente in quanto risulta molto simile allo scutterplot dei cluster calcolati sulle componenti principali
+
+**ANALISI DISCRIMINANTE LINEARE**
+
+```{r}
+#prendo il dataset e lo standardizzo per i motivi sopra riportati
+dataset_lda = data.frame(dataset_PCA)
+#riaggiungo type_seed non standardizzato
+dataset_lda$type_seed = dataset$type_seed
+#calcolo lda 
+lda_ris = lda(type_seed ~ ., data = dataset_lda)
+#visualizzo output
+lda_ris
+```
+
+**COMMENTO I RISULTATI DELL'ANALISI DISCRIMINANTE**
+
+**PROBABILITA' A PRIORI DEI GRUPPI = 33.3%** –\> sono perfettmente identiche dato che il nostro dataset presenta 70 osservazioni per gruppo quindi la probabilità a priori di essere nel gruppo 1 è uguale a quella di essere nel gruppo 2 o gruppo 3.
+
+**MEDIE DI GRUPPO**
+
+-   Il **Gruppo 1** ha valori intermedi, tranne per **asymmetry**, che presenta un valore negativo significativo.
+
+-   Il **Gruppo 2** è caratterizzato da valori medi più alti per variabili come **Area, perimeter e length_kernel.**
+
+-   Il **Gruppo 3** presentavalori medi più bassi, in particolare per **compactness e length_kernel_groove.**
+
+Queste differenze suggeriscono che le variabili predittive possono contribuire significativamente alla separazione tra i gruppi.
+
+```{r}
+plot(lda_ris)
+pred_lda=predict(lda_ris)
+ldahist(data = as.matrix(pred_lda$x)[,1], g=dataset_lda$type_seed)
+ldahist(data = as.matrix(pred_lda$x)[,2], g=dataset_lda$type_seed)
+```
+
+Le unità statistiche si distribuiscono in modo chiaro tra i differenti gruppi, come potevamo aspettarci dai risultati del LDA:
+
+-   Il gruppo 1 -\> presenta valori **medi** lungo l'asse **LD1**, e **alti** valori per l'asse **LD2**
+
+-   Il gruppo 2 -\> presenta valori **bassi** per **LD1** e **medi** per **LD2**
+
+-   Il gruppo 3 -\> presenta valori **alti** per **LD1** e **bassi** per **LD2**
+
+```{r}
+#trasformo type_seed in factor 
+dataset_lda$type_seed = factor(dataset_lda$type_seed)
+#faccio il grafico
+ggord(lda_ris, dataset_lda$type_seed)
+```
+
+Possiamo notare come **perimetro e area** sono le var che più influenzano l'analisi discriminante
+
+-   LD1 –\> spiega il 68% della variabilità tot (cattura la maggior parte delle informazioni per separare i gruppi)
+
+-   LD2 –\> spiega il 32% della variabilità tot
+
+**CONFRONTO GRUPPI REALI & LDA\
+LDA-KMEANS & LDA-WARD**
+
+```{r}
+#CONFRONTO GRUPPI_REALI-PREVIST_LDA
+table(LDA = pred_lda$class, OSSERVATI = dataset_lda$type_seed)
+
+```
+
+I gruppi osservati hanno 70 osservazioni per gruppo
+
+I gruppi previsti da LDA prevedono una distribuzione molto simile per il 1 e 2 gruppo, il 3 risulta esattamente a quello osservato.
+
+```{r}
+#calcolo l'errore di lda percentuale 
+errore_lda = ((1+3+3)/(70*3))*100
+errore_lda
+```
+
+Possiamo vedere che l'errore della previsione di LDA è pari a 3.333%
+
+```{r}
+#prendo il ris di kmeans con 3 centri
+k3_ris = k_ris[[3]]
+#confronto il kmeans con lda
+table(LDA = pred_lda$class, KMEDIE=k3_ris$cluster)
+
+```
+
+Anche il Kmedie così come LDA prevedono gruppi simili a quelli originali
+
+```{r}
+#confornto ward con lda 
+table(LDA = pred_lda$class, WARD=ward_cut)
+
+```
+
+Anche il Ward come avevamo gia appurato prevede molto bene la divisione in 3 gruppi
+
+**CONFRONTO CLUSTERING-LDA**
+
+-   **Clustering** è adatto quando non abbiamo informazioni a priori sui gruppi, ma può produrre risultati meno precisi perché non sfrutta etichette.
+
+-   **LDA** richiede la conoscenza dei gruppi, il che lo rende più efficace per separare gruppi conosciuti, ma meno flessibile.
